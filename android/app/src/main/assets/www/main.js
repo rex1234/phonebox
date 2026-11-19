@@ -107,6 +107,19 @@ export const D = { state: null, quotas: null, work: null, procs: null, push: {},
 export const HIST = 90;
 export const hist = { cpu: [], gpu: [], ram: [], vram: [], down: [], up: [], ping: [], gputemp: [], cputemp: [], hotspot: [], gpupower: [], gpuclock: [] };
 export const pushHist = (k, v) => { const a = hist[k]; a.push(v ?? 0); if (a.length > HIST) a.shift(); };
+// The highest value of the last 5 minutes per metric (shown in brackets behind a temperature). A sliding-window maximum:
+// each queue keeps only the samples that can still become the maximum, newest last and falling in value.
+const PEAK_MS = 5 * 60_000;
+const peaks = {};
+export function pushPeak(k, v, now = Date.now()) {
+  const q = peaks[k] || (peaks[k] = []);
+  if (v != null) {
+    while (q.length && q[q.length - 1][1] <= v) q.pop();
+    q.push([now, v]);
+  }
+  while (q.length && now - q[0][0] > PEAK_MS) q.shift();
+}
+export const peakOf = (k) => peaks[k]?.[0]?.[1] ?? null;
 
 // ---------------------------------------------------------------- helpers
 /** fetch() to the panel's local/USB feed proxy when the phone cannot reach an allowed public HTTPS feed directly. */
@@ -507,7 +520,7 @@ export const METRICS = {
   up: { label: 'UPLOAD', name: 'Upload', color: '--up', rate: true, max: netMax, val: (s) => s.pc?.netUpBps },
   ping: { label: 'PING', name: 'Ping', color: '#38bdf8', unit: 'ms', max: () => Math.max(50, ...hist.ping) * 1.2, val: (s) => s.ping?.ms,
     sub: (s) => (s.ping ? `avg ${s.ping.avgMs ?? '—'} ms · loss ${s.ping.lossPct}%` : '') },
-  gputemp: { label: 'GPU TEMP', name: 'GPU temperature', color: '#f97316', unit: '°C', max: () => 100, hot: [75, 85], val: (s) => gpuOf(s)?.temp,
+  gputemp: { label: 'GPU TEMP', name: 'GPU temperature', color: '#f97316', unit: '°C', peak: 'gputemp', max: () => 100, hot: [75, 85], val: (s) => gpuOf(s)?.temp,
     sub: (s) => {
       const g = gpuOf(s);
       if (!g) return 'No GPU data';
@@ -516,7 +529,7 @@ export const METRICS = {
         g.clock != null ? `${Math.round(g.clock)} MHz` : null].filter(Boolean);
       return detail.length ? detail.join(' · ') : (g.temp != null ? 'Temperature' : 'No GPU data');
     } },
-  hotspot: { label: 'HOT SPOT', name: 'GPU hot spot', color: '#ef4444', unit: '°C', max: () => 110, hot: [90, 100], val: (s) => gpuOf(s)?.hotSpot,
+  hotspot: { label: 'HOT SPOT', name: 'GPU hot spot', color: '#ef4444', unit: '°C', peak: 'hotspot', max: () => 110, hot: [90, 100], val: (s) => gpuOf(s)?.hotSpot,
     sub: (s) => {
       const g = gpuOf(s);
       if (g?.hotSpot == null) return 'needs LibreHardwareMonitor';
@@ -533,7 +546,7 @@ export const METRICS = {
     } },
   gpuclock: { label: 'GPU CLOCK', name: 'GPU clock', color: '#a78bfa', unit: 'MHz', max: () => Math.max(1000, ...hist.gpuclock) * 1.1, val: (s) => gpuOf(s)?.clock,
     sub: (s) => { const g = gpuOf(s); return g?.memClock != null ? `Memory ${Math.round(g.memClock)} MHz` : g?.clock == null ? 'No clock data' : ''; } },
-  cputemp: { label: 'CPU TEMP', name: 'CPU temperature', color: '#fb7185', unit: '°C', max: () => 100, hot: [75, 85], val: (s) => s.pc?.cpuTemp,
+  cputemp: { label: 'CPU TEMP', name: 'CPU temperature', color: '#fb7185', unit: '°C', peak: 'cputemp', max: () => 100, hot: [75, 85], val: (s) => s.pc?.cpuTemp,
     sub: (s) => (s.pc?.cpuTemp == null ? 'needs LibreHardwareMonitor' : shortCpu(s.pc?.cpuName)) },
 };
 
@@ -542,7 +555,8 @@ export function metricText(m, s) {
   if (m.rate) return fmtRate(v);
   const unit = (typeof m.unit === 'function' ? m.unit(s) : m.unit) || '';
   if (v == null) return ['—', unit];
-  return [m.fmt ? m.fmt(v) : String(Math.round(v)), unit];
+  const top = m.peak ? peakOf(m.peak) : null;
+  return [m.fmt ? m.fmt(v) : String(Math.round(v)), top != null ? `${unit} (${Math.round(top)})` : unit];
 }
 
 // ---------------------------------------------------------------- weather (Open-Meteo, straight from the phone)
@@ -2157,8 +2171,11 @@ export function applyState(s, replayGen = null) {
       pushHist('up', pc.netUpBps);
       pushHist('ping', s.ping?.ms);
       pushHist('gputemp', pc.gpu?.temp);
+      pushPeak('gputemp', pc.gpu?.temp);
       pushHist('cputemp', pc.cpuTemp);
+      pushPeak('cputemp', pc.cpuTemp);
       pushHist('hotspot', pc.gpu?.hotSpot);
+      pushPeak('hotspot', pc.gpu?.hotSpot);
       pushHist('gpupower', pc.gpu?.power ?? pc.gpu?.powerPct);
       pushHist('gpuclock', pc.gpu?.clock);
     }

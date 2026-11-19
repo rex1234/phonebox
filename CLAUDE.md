@@ -28,8 +28,20 @@ No Android phone, adb, Wi-Fi pairing or Tailscale is wanted. Keep everything on 
 - `quotabars` ("Quota bars", AI & code): the ring widget's data (`quotaring`) as filling horizontal lines, one per limit (max 3), with
   the pace tick and "resets in". 2x2 (min 2x2), option `provider` (default claude). Code in `widgets/pc.js` (`W.quotabars`),
   CSS at the end of `style.css` (`.qb-*`), palette icon in `WIDGET_ICONS` (`main.js`).
+- Temperature metrics show the 5-minute maximum in brackets behind the unit (`71 °C (74)`): `pushPeak`/`peakOf` in `main.js`
+  (sliding-window max, fed next to `pushHist`), `metricText()` appends it, and the `cputemp`, `hotspot` and `gputemp` entries of
+  `METRICS` opt in with `peak: '<key>'`. The window starts when the panel page loads, not when the agent starts.
 - Adding a widget to `widgets.json` changes the count: `tools/check-release.py` requires `README.md` to say `**N widgets**`
   (currently 126). The translated READMEs are not checked and still say 124.
+
+## Sensors (CPU temperature, GPU hot spot)
+- Windows has no built-in source for these. The agent first tries LibreHardwareMonitor's web server (port 8085); when that is not
+  running (the owner has none) it reads the sensors **directly** with the `LibreHardwareMonitorLib` NuGet package
+  (`LhmDirect.cs`, wired into `SystemMonitor.CpuTempLoop`). Windows build only (`Compile Remove` for the cross-platform one).
+- The CPU temperature needs the hardware driver, i.e. the agent must run **as administrator**; the GPU hot spot works without.
+  A reading of 0 is treated as no reading. The batch file starts the agent elevated (UAC prompt, then waits for port 8765).
+- An elevated agent cannot be stopped from a normal shell: use the tray icon > quit, or an elevated PowerShell
+  (`Start-Process powershell -Verb RunAs ... Stop-Process -Id <pid>`), before rebuilding.
 
 ## Local environment (as of 2026-11-19)
 - .NET 10 SDK (10.0.404) installed via winget. Python 3.10 is available.
