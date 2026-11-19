@@ -724,6 +724,48 @@ W.quotabars = {
   },
 };
 
+// Room temperature: the "Environment" tile of a home-monitor page. The agent fetches the page from the address typed in
+// the widget's options (the panel only names the widget) and answers { state, temp, humidity }.
+W.roomtemp = {
+  needs: ['tick'],
+  create(box, { o, page, w }) {
+    box.style.setProperty('--c', color('#38bdf8'));
+    const val = h('b', null, '—'), unit = h('small', null, '°C'), sub = h('div', 't-sub', ' ');
+    box.append(h('div', 'rt-in', h('div', 't-label', o.title || 'ROOM'), h('div', 't-val', val, unit), sub));
+    box.title = o.title || 'Room';
+    const wq = 'widget=' + encodeURIComponent(`${page.id}/${w.id}`);
+    const NOTE = {
+      pick: 'Enter the page address in the widget options',
+      badurl: 'The address must start with http://',
+      unreachable: 'Page not reachable',
+      nodata: 'No Environment tile on the page',
+      unknown: 'Save the layout, then reload',
+    };
+    let last = 0, busy = false, alive = true;
+    const load = async () => {
+      busy = true;
+      try {
+        const r = await api('/room?' + wq, 'GET', 15000);
+        if (!alive) return;
+        if (r.state === 'ok' && typeof r.temp === 'number') {
+          val.textContent = r.temp.toFixed(1);
+          sub.textContent = typeof r.humidity === 'number' ? `${Math.round(r.humidity)}% RH` : ' ';
+          box.classList.remove('rt-off');
+        } else {
+          // keep the last value, dimmed, when the page is only briefly unreachable
+          box.classList.add('rt-off');
+          sub.textContent = NOTE[r.state] || 'No data';
+        }
+      } catch (_) { if (alive) { box.classList.add('rt-off'); sub.textContent = 'Computer not reachable'; } }
+      finally { busy = false; }
+    };
+    return {
+      update() { if (busy || Date.now() - last < 30_000) return; last = Date.now(); load(); },
+      destroy() { alive = false; },
+    };
+  },
+};
+
 W.volume = {
   needs: ['state'],
   create(box) {

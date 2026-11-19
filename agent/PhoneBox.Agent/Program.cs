@@ -78,6 +78,7 @@ AddMonitor<SessionMonitor>(builder.Services);
 AddMonitor<FeedMonitor>(builder.Services);
 builder.Services.AddSingleton<PhotoFrame>();
 builder.Services.AddSingleton<CameraFeeds>();
+builder.Services.AddSingleton<RoomSensor>();
 AddMonitor<GitHubMonitor>(builder.Services);
 AddMonitor<PingMonitor>(builder.Services);
 AddMonitor<AdbReverse>(builder.Services);
@@ -516,6 +517,26 @@ app.MapGet("/api/photos/{id}", async (string id, PhotoFrame photos, HttpResponse
 // Camera widget: the latest picture of the camera a widget shows, as a JPEG. Pulling a camera starts with these requests
 // and stops a few seconds after the last one; without a fresh picture the answer is a state, never an older picture.
 // "fresh" is read as text, not bound as a bool: a value the bool binder can't parse ("1") would answer 400 instead
+// The computer's desktop wallpaper behind the panel in the window on this computer (the panel adds ?wallpaper=1); local port only,
+// and the request never names a file: Wallpaper picks it.
+app.MapGet("/api/wallpaper", (HttpContext ctx) =>
+{
+    if (ctx.Connection.LocalPort != Port || Wallpaper.Current() is not { } path) return Results.NotFound();
+    try
+    {
+        var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+        ctx.Response.Headers.CacheControl = "no-cache";
+        ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        return Results.Stream(stream, Wallpaper.ContentType(path), lastModified: File.GetLastWriteTimeUtc(path));
+    }
+    catch { return Results.NotFound(); }
+});
+// Room temperature widget: the Environment tile of the home-monitor page typed into the widget (the panel names only the widget).
+app.MapGet("/api/room", async (string? widget, HttpRequest req, HttpResponse res, RoomSensor room, CancellationToken ct) =>
+{
+    res.Headers.CacheControl = "no-store";
+    return Results.Json(await room.Read(req.Headers["X-PhoneBox-Device"].ToString(), widget, ct));
+});
 app.MapGet("/api/camera", (string? widget, string? fresh, HttpRequest req, HttpResponse res, CameraFeeds cameras) =>
 {
     var (status, jpeg, state) = cameras.Frame(req.Headers["X-PhoneBox-Device"].ToString(), widget, fresh is "true" or "1");

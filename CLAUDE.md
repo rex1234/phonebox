@@ -21,6 +21,23 @@ No Android phone, adb, Wi-Fi pairing or Tailscale is wanted. Keep everything on 
 - C: separate Tauri/Electron app. D: native rewrite (not recommended).
 - Open issue: make the grid/canvas desktop-sized (the editor canvas is phone-shaped); new templates for widescreen.
 
+## Rules for widgets in this fork
+- **Always set `minW` / `minH` in `widgets.json` as low as the widget can really work** (ideally 1x1), and make it work there: lay it
+  out with `@container` rules on its inner elements. A container query styles only what is INSIDE the container, and `.w` is the
+  container, so wrap the content in an inner element (like `.rt-in`) and put the layout, padding and direction on that, never on
+  `.w-<type>` itself. The tile is only ~48 px high on the 780x360 phone grid and ~108 px on a 1280x720 desktop; check both with a
+  headless Edge screenshot against a scratch agent (`--config <scratch> --port 18765`).
+- Candidates to lower later: `brightness-line` (min 2x1, could be 1x1) and `quotabars` (min 2x2).
+
+## Desktop wallpaper behind the panel
+- The dashboard window opens `.../panel/?wallpaper=1` (set in `phonebox-dashboard.bat`). `main.js` then sets `--wallpaper` and the
+  class `has-wallpaper` on `<html>`; `style.css` (end of file) draws the image with a light dark tint and frosted-glass cards
+  (`backdrop-filter: blur`). The phone panel and the editor preview never ask for it.
+- `GET /api/wallpaper` (`Wallpaper.cs`, local port only) serves the Windows wallpaper: the registry `WallPaper` path if it is an absolute
+  path to an image (jpg/png/bmp/webp/gif, 1 B to 30 MB), else `%APPDATA%\\Microsoft\\Windows\\Themes\\TranscodedWallpaper`. A request never
+  names a path. Currently `C:\Users\janin\Desktop\1od2kiuhrtkg1.jpeg`. It is the primary monitor's wallpaper; per-monitor wallpapers
+  are not read. Real window transparency is not possible in an Edge `--app` window (it would need the WebView2 host, option B).
+
 ## Custom widgets added in this fork
 - `brightness-line` ("Brightness line", Control Deck): sun icon + one slider for one monitor, 3x1 (min 2x1). Code in
   `widgets/controls.js` (`W['brightness-line']`, reuses `deckState`/`deckCommand`/`slider`), CSS appended to `controls.css`,
@@ -28,6 +45,12 @@ No Android phone, adb, Wi-Fi pairing or Tailscale is wanted. Keep everything on 
 - `quotabars` ("Quota bars", AI & code): the ring widget's data (`quotaring`) as filling horizontal lines, one per limit (max 3), with
   the pace tick and "resets in". 2x2 (min 2x2), option `provider` (default claude). Code in `widgets/pc.js` (`W.quotabars`),
   CSS at the end of `style.css` (`.qb-*`), palette icon in `WIDGET_ICONS` (`main.js`).
+- `roomtemp` ("Room temperature", Web & data; min 1x1, default 3x2; one row high it shows value + humidity, one cell high they stack): temperature + relative humidity from the **Environment** tile of the owner's home-monitor
+  page (vaponitor; server-rendered Tabler HTML, no JSON API; `<span>23.3</span>°C, <span>41.2</span>% RH`). The widget's `url` option holds
+  the page address; the panel only sends `?widget=pageId/widgetId` to `GET /api/room` (`RoomSensor.cs`, regex parse, 20 s cache), and the
+  fetch goes through `FeedHttp` (no loopback/link-local, no redirect to non-public hosts, 4 MB cap). **Use the plain-http LAN address
+  `http://192.168.0.110:8080/`**: `https://rp.vaporized.space/` has a Caddy local-CA certificate this PC does not trust, and
+  certificate checks are deliberately not bypassed. Tests: `RoomSensorTests.cs`.
 - Temperature metrics show the 5-minute maximum in brackets behind the unit (`71 °C (74)`): `pushPeak`/`peakOf` in `main.js`
   (sliding-window max, fed next to `pushHist`), `metricText()` appends it, and the `cputemp`, `hotspot` and `gputemp` entries of
   `METRICS` opt in with `peak: '<key>'`. The window starts when the panel page loads, not when the agent starts.
@@ -58,6 +81,11 @@ No Android phone, adb, Wi-Fi pairing or Tailscale is wanted. Keep everything on 
 ## Helper files (outside the repo)
 - `C:\Rex\Projects\other\phonebox-dashboard.bat`: starts the built real agent if port 8765 is free, then opens the panel in an Edge app
   window, fullscreen on monitor 2 (`--window-position=2294,460`). Desktop shortcut: `Desktop\PhoneBox Dashboard.lnk`.
+- `C:\Rex\Projects\other\phonebox-hide-from-taskbar.ps1` (started by the bat file): finds the Edge window of the `phonebox-edge` profile and
+  sets `WS_EX_TOOLWINDOW` (removes the taskbar button and the Alt+Tab entry; the agent's tray icon stays). The window can then only be
+  closed with Alt+F4 while it has focus, or by ending its msedge process; the tray menu has no dashboard entry yet. A proper fix
+  would be the WebView2 host (option B: `ShowInTaskbar = false`, tray "Open dashboard").
+- The bat file also passes `--lang=en-US --disable-features=Translate,TranslateUI` (no translate popup; the panel is `translate="no"` too).
 - Build output: `C:\Rex\Projects\other\phonebox-build`; agent settings/data: `C:\Rex\Projects\other\phonebox-data`.
 - The demo server (port 8790) is no longer used by the shortcut; `tools/demo-server.py` still works for fake-data testing.
 

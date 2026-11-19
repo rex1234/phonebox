@@ -1298,3 +1298,30 @@ body.controls-top .ap-foot { order: -1; margin-bottom: 4px; }
 .qb-sub { font-size: clamp(8px, 5cqh, 11px); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .qb-sub.hot { color: #f87171; }
 @container (max-height: 140px) { .w-quotabars .qb-sub { display: none; } }
+/* Room temperature. Container queries style only what is INSIDE the .w container, so the layout lives on .rt-in. */
+.w-roomtemp { padding: 0; }
+.w-roomtemp .rt-in { height: 100%; min-width: 0; display: flex; flex-direction: column; padding: clamp(5px, 9cqh, 10px) clamp(8px, 6cqw, 12px); }
+.w-roomtemp .rt-in > * { min-width: 0; }
+.w-roomtemp.rt-off .t-val { opacity: .5; }
+/* one row high: value and humidity side by side, no title (it is the tooltip) */
+@container (max-height: 70px) {
+  .w-roomtemp .rt-in { flex-direction: row; align-items: center; justify-content: center; gap: 8px; padding-top: 0; padding-bottom: 0; }
+  .w-roomtemp .t-label { display: none; }
+  .w-roomtemp .t-val { margin-top: 0; }
+  .w-roomtemp .t-val b { font-size: clamp(14px, 46cqh, 32px); }
+  .w-roomtemp .t-val small { font-size: clamp(9px, 22cqh, 14px); }
+  .w-roomtemp .t-sub { font-size: clamp(9px, 28cqh, 14px); }
+}
+/* one cell: value over humidity */
+@container (max-height: 70px) and (max-width: 100px) {
+  .w-roomtemp .rt-in { flex-direction: column; gap: 0; }
+  .w-roomtemp .t-val b { font-size: clamp(13px, 38cqh, 24px); }
+  .w-roomtemp .t-sub { font-size: clamp(8px, 22cqh, 12px); }
+}
+
+/* Desktop wallpaper behind the panel (?wallpaper=1, see main.js): a light tint for readability, frosted-glass cards */
+html.has-wallpaper { background: #000 var(--wallpaper) center / cover no-repeat; }
+html.has-wallpaper body { background: linear-gradient(rgba(5, 8, 12, .34), rgba(5, 8, 12, .34)); }
+html.has-wallpaper .card { background: rgba(255, 255, 255, .09); border-color: rgba(255, 255, 255, .16); -webkit-backdrop-filter: blur(18px) saturate(1.35); backdrop-filter: blur(18px) saturate(1.35); }
+/* the room temperature tile stays a plain card, no frosted glass */
+html.has-wallpaper .w-roomtemp.card { background: var(--card); border-color: var(--line); -webkit-backdrop-filter: none; backdrop-filter: none; }

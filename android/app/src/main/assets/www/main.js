@@ -106,6 +106,12 @@ export const D = { state: null, quotas: null, work: null, procs: null, push: {},
 
 export const HIST = 90;
 export const hist = { cpu: [], gpu: [], ram: [], vram: [], down: [], up: [], ping: [], gputemp: [], cputemp: [], hotspot: [], gpupower: [], gpuclock: [] };
+// ?wallpaper=1 (the dashboard window on the computer): the computer's wallpaper behind the panel, the cards frosted over it.
+// The phone's panel and the editor preview never ask for it. The agent serves it on its local port only.
+if (new URLSearchParams(location.search).has('wallpaper')) {
+  document.documentElement.style.setProperty('--wallpaper', `url("${API}/wallpaper?v=${Date.now()}")`);
+  document.documentElement.classList.add('has-wallpaper');
+}
 export const pushHist = (k, v) => { const a = hist[k]; a.push(v ?? 0); if (a.length > HIST) a.shift(); };
 // The highest value of the last 5 minutes per metric (shown in brackets behind a temperature). A sliding-window maximum:
 // each queue keeps only the samples that can still become the maximum, newest last and falling in value.
@@ -1219,7 +1225,7 @@ export function handleEvent(e) {
 export const WIDGET_ICONS = { camera: '📹', dictate: '🎙️', spectrum: '📶', 'app-console': '🎛️',discord: '💬', rules: '⚡', chargecare: '🔋', nextup: '⏭️', moon: '🌙', wordclock: '🔤', clock: '🕒', weather: '⛅', forecast: '🌦️', media: '🎵', stat: '📈', gauge: '⏲️', chart: '📊', meters: '💾', gpu: '🎮', quotas: '✳️', sessions: '🤖',
   github: '🐙', processes: '⚙️', shortcuts: '🎛️', button: '🔘', worldclock: '🌍', calendar: '📅', pomodoro: '🍅', countdown: '⏳', note: '📝', command: '💻',
   push: '📡', inbox: '📬', label: '🔤', analog: '🕰️', progress: '📆', stopwatch: '⏱️', timer: '⏲️', counter: '🔢', breathe: '🫁', quote: '💬',
-  checklist: '✅', battery: '🔋', topprocs: '🔥', quotaring: '🎯', quotabars: '✳️', volume: '🔊', sun: '🌅', air: '🍃', hackernews: '📰', feeds: '🗞️', photos: '🖼️', exchange: '💱', crypto: '🪙', image: '🖼️', pcswitch: '🖥️' };
+  checklist: '✅', battery: '🔋', topprocs: '🔥', quotaring: '🎯', quotabars: '✳️', roomtemp: '🌡️', volume: '🔊', sun: '🌅', air: '🍃', hackernews: '📰', feeds: '🗞️', photos: '🖼️', exchange: '💱', crypto: '🪙', image: '🖼️', pcswitch: '🖥️' };
 
 // ================================================================= pages
 export const pager = $('pager');
