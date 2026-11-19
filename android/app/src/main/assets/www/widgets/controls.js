@@ -620,7 +620,40 @@ for (const [type, title, mode] of [
 ]) registerDeckWidget(type, title, mode);
 for (const type of Object.keys(groups)) registerDeckWidget(type, type.split('-').map(s => s[0].toUpperCase() + s.slice(1)).join(' '));
 
-W['meeting-status'] = { needs: ['state', 'push'], create: (box, ctx) => W.onair.create(box, ctx) };
+// One slim line: sun icon + a brightness slider for a single monitor. Fits 3x1.
+W['brightness-line'] = {
+  needs: ['tick'],
+  create(box, { o }) {
+    box.classList.add('brightness-line');
+    let monitorId = '', alive = true, loading = false;
+    const s = slider('Display brightness', value => deckCommand('brightness', { id: monitorId, value }));
+    box.append(icon('sun'), s.input);
+    s.input.disabled = true;
+    return {
+      async update() {
+        if (loading || !alive) return;
+        loading = true;
+        try {
+          const data = await deckState();
+          if (!alive) return;
+          const all = data.monitors || [];
+          // the chosen monitor, else the first one that exposes brightness, else the first one
+          const m = (o.device && all.find(x => x.id === o.device)) || all.find(x => x.brightness != null) || all[0];
+          monitorId = m?.id || '';
+          s.input.disabled = !m || m.brightness == null;
+          box.classList.toggle('brightness-na', s.input.disabled);
+          box.title = m ? (m.brightness == null ? m.name + ': DDC/CI unavailable' : m.name) : t('w.noMonitors');
+          s.set(m?.brightness || 0);
+          box.classList.remove('deck-offline');
+        } catch (_) { if (alive) box.classList.add('deck-offline'); }
+        finally { loading = false; }
+      },
+      destroy() { alive = false; },
+    };
+  },
+};
+
+W['meeting-status'] ={ needs: ['state', 'push'], create: (box, ctx) => W.onair.create(box, ctx) };
 
 async function integrationCommand(path, values = {}) {
   const result = await api('/controls/' + path + '?' + new URLSearchParams(values), 'POST', 20000);

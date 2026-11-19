@@ -694,6 +694,36 @@ W.quotaring = {
   },
 };
 
+// Quota bars: the same data as the ring, as filling lines (one per limit) with the pace tick. Made for 2x2.
+W.quotabars = {
+  needs: ['quotas', 'tick'],
+  create(box, { o }) {
+    const prov = o.provider || 'claude';
+    const st = Q_STYLE[prov] || { color: '#94a3b8', logo: '●' };
+    box.style.setProperty('--q', st.color);
+    const title = h('div', 'qb-title'), list = h('div', 'qb-list');
+    box.append(title, list);
+    let last = 0;
+    const render = () => {
+      const p = quotaProviders().find((x) => x.id === prov);
+      title.textContent = `${st.logo} ${p?.name || prov}`;
+      const limits = (p?.limits || []).slice(0, 3);
+      if (!limits.length) { list.replaceChildren(h('div', 'qb-sub', D.quotas ? 'No data' : 'Waiting…')); return; }
+      list.replaceChildren(...limits.map((l) => {
+        const pct = Math.max(0, Math.min(100, l.percent || 0));
+        const pace = paceInfo(l);
+        const fill = h('i', 'qb-fill'), track = h('div', 'qb-track', fill);
+        fill.style.width = pct + '%';
+        fill.style.setProperty('--qc', pct >= 95 ? '#ef4444' : pct >= 80 ? '#f59e0b' : 'var(--q)');
+        if (pace) { const tick = h('i', 'qb-pace'); tick.style.left = (pace.elapsed * 100) + '%'; track.append(tick); }
+        const sub = h('div', 'qb-sub' + (pace?.cls === 'over' ? ' hot' : ''), l.resetsAt ? 'resets in ' + fmtDur(l.resetsAt - Date.now()) : '');
+        return h('div', 'qb-row', h('div', 'qb-head', h('span', 'qb-name', l.label || ''), h('b', 'qb-pct', Math.round(l.percent || 0) + '%')), track, sub);
+      }));
+    };
+    return { update(kind) { if (kind === 'tick' && Date.now() - last < 30_000) return; last = Date.now(); render(); } };
+  },
+};
+
 W.volume = {
   needs: ['state'],
   create(box) {
