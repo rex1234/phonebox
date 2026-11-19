@@ -248,29 +248,61 @@ public sealed partial class SystemMonitor(ILogger<SystemMonitor> log, ConfigStor
         return;
 #else
 #pragma warning disable CS0162
-        while (!ct.IsCancellationRequested)
+        // Without LibreHardwareMonitor's web server the sensors are read directly (LhmDirect); it is opened on the first miss.
+        LhmDirect? direct = null;
+        var directTried = false;
+        try
         {
-            var delay = TimeSpan.FromSeconds(2);
-            try
+            while (!ct.IsCancellationRequested)
             {
-                using var doc = JsonDocument.Parse(await _http.GetStringAsync("http://127.0.0.1:8085/data.json", ct));
-                _cpuTemp = FindCpuTemp(doc.RootElement);
-                try { _lhmGpus = Gpus.ParseLhm(doc.RootElement); }
-                catch (Exception ex)
+                var delay = TimeSpan.FromSeconds(2);
+                try
                 {
-                    log.LogDebug("lhm gpu: {Msg}", ex.Message);
-                    _lhmGpus = null;
+                    using var doc = JsonDocument.Parse(await _http.GetStringAsync("http://127.0.0.1:8085/data.json", ct));
+                    _cpuTemp = FindCpuTemp(doc.RootElement);
+                    try { _lhmGpus = Gpus.ParseLhm(doc.RootElement); }
+                    catch (Exception ex)
+                    {
+                        log.LogDebug("lhm gpu: {Msg}", ex.Message);
+                        _lhmGpus = null;
+                    }
                 }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                catch
+                {
+                    if (!directTried)
+                    {
+                        directTried = true;
+                        var d = new LhmDirect();
+                        if (d.Open()) direct = d; else d.Dispose();
+                    }
+                    if (direct is not null)
+                    {
+                        try
+                        {
+                            var (temp, gpus) = await Task.Run(direct.Read, ct);
+                            _cpuTemp = temp;
+                            _lhmGpus = gpus;
+                        }
+                        catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
+                        catch (Exception ex)
+                        {
+                            log.LogDebug("lhm direct: {Msg}", ex.Message);
+                            _cpuTemp = null;
+                            _lhmGpus = null;
+                        }
+                    }
+                    else
+                    {
+                        _cpuTemp = null;
+                        _lhmGpus = null;
+                        delay = TimeSpan.FromSeconds(30);
+                    }
+                }
+                await Task.Delay(delay, ct);
             }
-            catch (OperationCanceledException) when (ct.IsCancellationRequested) { return; }
-            catch
-            {
-                _cpuTemp = null;
-                _lhmGpus = null;
-                delay = TimeSpan.FromSeconds(30);
-            }
-            await Task.Delay(delay, ct);
         }
+        finally { direct?.Dispose(); }
 #endif
     }
 

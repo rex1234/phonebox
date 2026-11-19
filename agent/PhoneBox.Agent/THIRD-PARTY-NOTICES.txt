@@ -1,7 +1,7 @@
 PhoneBox agent: third-party software
 
 The release agent is self-contained: it includes the .NET runtime and ASP.NET Core, QRCoder, and on Windows also
-Windows Forms, the C#/WinRT projection (WinRT.Runtime, Microsoft.Windows.SDK.NET) and NAudio.
+Windows Forms, the C#/WinRT projection (WinRT.Runtime, Microsoft.Windows.SDK.NET), NAudio and LibreHardwareMonitorLib.
 
 .NET runtime, ASP.NET Core, Windows Forms, C#/WinRT
 https://github.com/dotnet/runtime  https://github.com/dotnet/aspnetcore  https://github.com/dotnet/winforms
@@ -15,6 +15,12 @@ QRCoder 1.8.1
 https://github.com/Shane32/QRCoder
 MIT License, Copyright (c) 2013-2025 Raffael Herrmann; Copyright (c) 2024-2025 Shane Krueger
 (the same MIT terms as below)
+
+--------------------------------------------------------------------------------
+
+LibreHardwareMonitorLib 0.9.6 (Windows build; reads CPU and GPU sensors)
+https://github.com/LibreHardwareMonitor/LibreHardwareMonitor
+Mozilla Public License 2.0 (https://www.mozilla.org/MPL/2.0/). Unmodified library; its source is available at the address above.
 
 --------------------------------------------------------------------------------
 

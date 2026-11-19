@@ -26,6 +26,8 @@
 
   <ItemGroup Condition="$(TargetFramework.Contains('-windows'))">
     <PackageReference Include="NAudio" Version="3.3.0" />
+    <!-- CPU temperature and GPU hot spot read straight from the sensors (no LibreHardwareMonitor needed); needs admin for the CPU -->
+    <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
   </ItemGroup>
 
   <PropertyGroup Condition="!$(TargetFramework.Contains('-windows'))">
@@ -39,7 +41,7 @@
   </ItemGroup>
 
   <ItemGroup Condition="!$(TargetFramework.Contains('-windows'))">
-    <Compile Remove="Tray.cs;JobObject.cs;AudioControl.cs;MediaMonitor.cs" />
+    <Compile Remove="Tray.cs;JobObject.cs;AudioControl.cs;MediaMonitor.cs;LhmDirect.cs" />
   </ItemGroup>
 
   <ItemGroup>
