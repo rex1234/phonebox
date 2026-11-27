@@ -653,6 +653,72 @@ W['brightness-line'] = {
   },
 };
 
+// One Govee light on the network (LAN control): an on/off button, and a brightness slider with a colour temperature
+// slider below it, in the same slim row as the brightness line. The agent talks to the light; the panel names only the widget, and the address is in its options.
+const GOVEE_NOTE = {
+  pick: 'Type the light\'s address in the widget options',
+  badip: 'The address must be an IPv4 address, e.g. 192.168.0.69',
+  offline: 'No answer: switch LAN Control on in the Govee Home app',
+  port: 'UDP port 4002 is used by another program',
+  unknown: 'Save the layout, then reload',
+};
+W['govee-light'] = {
+  needs: ['tick'],
+  create(box, { o, page, w }) {
+    box.classList.add('brightness-line', 'govee-light');
+    const wq = 'widget=' + encodeURIComponent(`${page.id}/${w.id}`);
+    // seq counts commands: an answer asked for before the latest command is out of date and is dropped
+    let on = false, alive = true, last = 0, seq = 0, sending = 0, loading = false;
+    const showPower = value => { on = value; power.textContent = on ? 'On' : 'Off'; power.classList.toggle('on', on); };
+    const power = button('Off', () => send(on ? 'off' : 'on'), 'Light on or off');
+    const s = slider('Light brightness', value => send('brightness', value));
+    s.input.min = 1;
+    const k = slider('Colour temperature', value => send('kelvin', value), 9000);
+    k.input.min = 2000; k.input.step = 100;
+    k.input.classList.add('govee-kelvin');
+    const enable = ok => { s.input.disabled = k.input.disabled = power.disabled = !ok; };
+    enable(false);
+    box.append(icon('lightbulb'), power, h('div', 'govee-sliders', s.input, k.input));
+    const apply = r => {
+      if (r.state !== 'ok') {
+        box.classList.add('brightness-na'); enable(false);
+        box.title = GOVEE_NOTE[r.state] || 'The light did not answer';
+        return;
+      }
+      showPower(!!r.on);
+      enable(true);
+      box.classList.remove('brightness-na', 'deck-offline');
+      box.title = o.title || 'Govee light';
+      s.set(r.brightness || 1);
+      if (r.kelvin) k.set(r.kelvin); // no value while the light shows a colour: the fader stays where it is
+    };
+    const send = async (op, value) => {
+      const mine = ++seq;
+      sending++;
+      if (op === 'on' || op === 'off') showPower(op === 'on'); // shown at once; the answer confirms it
+      try {
+        const q = `/govee/command?${wq}&op=${op}` + (value != null ? `&value=${value}` : '');
+        const r = await api(q, 'POST', 15000);
+        if (alive && mine === seq) apply(r);
+      } catch (e) { last = 0; fail(e); }
+      finally { sending--; }
+    };
+    const load = async () => {
+      const asked = seq;
+      loading = true;
+      try {
+        const r = await api('/govee?' + wq, 'GET', 8000);
+        if (alive && asked === seq) { apply(r); box.classList.remove('deck-offline'); }
+      } catch (_) { if (alive) box.classList.add('deck-offline'); }
+      finally { loading = false; }
+    };
+    return {
+      update() { if (loading || sending || !alive || Date.now() - last < 4000) return; last = Date.now(); load(); },
+      destroy() { alive = false; },
+    };
+  },
+};
+
 W['meeting-status'] ={ needs: ['state', 'push'], create: (box, ctx) => W.onair.create(box, ctx) };
 
 async function integrationCommand(path, values = {}) {

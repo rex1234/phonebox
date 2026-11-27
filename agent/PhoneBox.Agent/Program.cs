@@ -79,6 +79,7 @@ AddMonitor<FeedMonitor>(builder.Services);
 builder.Services.AddSingleton<PhotoFrame>();
 builder.Services.AddSingleton<CameraFeeds>();
 builder.Services.AddSingleton<RoomSensor>();
+builder.Services.AddSingleton<GoveeLan>();
 AddMonitor<GitHubMonitor>(builder.Services);
 AddMonitor<PingMonitor>(builder.Services);
 AddMonitor<AdbReverse>(builder.Services);
@@ -536,6 +537,17 @@ app.MapGet("/api/room", async (string? widget, HttpRequest req, HttpResponse res
 {
     res.Headers.CacheControl = "no-store";
     return Results.Json(await room.Read(req.Headers["X-PhoneBox-Device"].ToString(), widget, ct));
+});
+// Govee light widget: one light on this network over Govee's LAN control (the address is typed into the widget's options).
+app.MapGet("/api/govee", async (string? widget, HttpRequest req, HttpResponse res, GoveeLan govee, CancellationToken ct) =>
+{
+    res.Headers.CacheControl = "no-store";
+    return Results.Json(await govee.Read(req.Headers["X-PhoneBox-Device"].ToString(), widget, ct));
+});
+app.MapPost("/api/govee/command", async (string? widget, string? op, int? value, HttpRequest req, HttpResponse res, GoveeLan govee, CancellationToken ct) =>
+{
+    res.Headers.CacheControl = "no-store";
+    return Results.Json(await govee.Act(req.Headers["X-PhoneBox-Device"].ToString(), widget, op, value, ct));
 });
 app.MapGet("/api/camera", (string? widget, string? fresh, HttpRequest req, HttpResponse res, CameraFeeds cameras) =>
 {

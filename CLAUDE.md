@@ -51,11 +51,16 @@ No Android phone, adb, Wi-Fi pairing or Tailscale is wanted. Keep everything on 
   fetch goes through `FeedHttp` (no loopback/link-local, no redirect to non-public hosts, 4 MB cap). **Use the plain-http LAN address
   `http://192.168.0.110:8080/`**: `https://rp.vaporized.space/` has a Caddy local-CA certificate this PC does not trust, and
   certificate checks are deliberately not bypassed. Tests: `RoomSensorTests.cs`.
+- `govee-light` ("Govee light", Control Deck, 3x1, min 2x1): on/off, brightness, colour temperature over Govee's LAN protocol
+  (UDP: commands to the light's 4003, replies to our 4002; scan on 4001, multicast got no reply here). `GoveeLan.cs`,
+  `GET /api/govee` + `POST /api/govee/command`, option `ip` (the owner's H8076 is at 192.168.0.69, LAN Control on).
+  **The light reports its old state for about 0.5 s after a command**, so the agent re-asks until the answer matches.
+  The global `input[type=range] { flex: 1 }` collapses sliders stacked in a column: set `flex: none`.
 - Temperature metrics show the 5-minute maximum in brackets behind the unit (`71 °C (74)`): `pushPeak`/`peakOf` in `main.js`
   (sliding-window max, fed next to `pushHist`), `metricText()` appends it, and the `cputemp`, `hotspot` and `gputemp` entries of
   `METRICS` opt in with `peak: '<key>'`. The window starts when the panel page loads, not when the agent starts.
 - Adding a widget to `widgets.json` changes the count: `tools/check-release.py` requires `README.md` to say `**N widgets**`
-  (currently 126). The translated READMEs are not checked and still say 124.
+  (currently 128). The translated READMEs are not checked and still say 124.
 
 ## Sensors (CPU temperature, GPU hot spot)
 - Windows has no built-in source for these. The agent first tries LibreHardwareMonitor's web server (port 8085); when that is not
